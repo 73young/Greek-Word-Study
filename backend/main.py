@@ -68,7 +68,10 @@ def init_db():
                 conn.execute("INSERT OR IGNORE INTO word_forms (word_id, form_text, grammar_label, gloss) VALUES (?, ?, ?, ?)", (word["id"], form_text, grammar_label, gloss))
         conn.executemany(
             "INSERT OR IGNORE INTO sentence_tests (lesson_id, greek_text, korean_answer, hint) VALUES (?, ?, ?, ?)",
-            [(lesson["id"], "ἀκούεις τὸν λόγον.", "너는 말씀을 듣는다.", "ἀκούεις: 너는 듣는다 · λόγον: 말씀을"), (lesson["id"], "βλέπει τὸν λόγον.", "그는 말씀을 본다.", "βλέπει: 그/그녀는 본다 · λόγον: 말씀을"), (lesson["id"], "ὁ λόγος ἀκούει.", "말씀은 듣는다.", "ὁ λόγος: 말씀은 · ἀκούει: 듣는다")],
+            [
+                (lesson["id"], "Μενοῦν μακάριοι οἱ ἀκούοντες τὸν λόγον τοῦ θεοῦ καὶ φυλάσσοντες.", "오히려 하나님의 말씀을 듣고 지키는 사람들이 복이 있다.", "누가복음 11:28 · ἀκούοντες: 듣는 사람들 · λόγον: 말씀을"),
+                (lesson["id"], "Ἐν ἀρχῇ ἦν ὁ λόγος.", "태초에 말씀이 계셨다.", "요한복음 1:1 앞부분 · ἐν ἀρχῇ: 태초에 · λόγος: 말씀"),
+            ],
         )
 app = FastAPI()
 init_db()
@@ -132,16 +135,12 @@ def admin_overview(request: Request):
         sentence_count = conn.execute("SELECT COUNT(*) FROM sentence_tests").fetchone()[0]
         lessons = conn.execute("SELECT l.id, l.name, COUNT(w.id) AS word_count FROM lessons l LEFT JOIN words w ON w.lesson_id = l.id GROUP BY l.id ORDER BY l.id").fetchall()
     return {"learners": learner_count, "words": word_count, "forms": form_count, "sentences": sentence_count, "lessons": [dict(row) for row in lessons]}
-
-
 @app.get("/api/admin/lessons/{lesson_id}/words")
 def admin_words(lesson_id: int, request: Request):
     require_admin(request)
     with get_db() as conn:
         rows = conn.execute("SELECT * FROM words WHERE lesson_id = ? ORDER BY id", (lesson_id,)).fetchall()
     return [dict(row) for row in rows]
-
-
 @app.delete("/api/admin/words/{word_id}")
 def delete_word(word_id: int, request: Request):
     require_admin(request)
@@ -150,8 +149,6 @@ def delete_word(word_id: int, request: Request):
         if cursor.rowcount == 0:
             raise HTTPException(404, "단어를 찾을 수 없습니다.")
     return {"ok": True}
-
-
 @app.get("/api/lessons")
 def lessons():
     with get_db() as conn:

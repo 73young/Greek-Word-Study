@@ -1,15 +1,12 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { api } from '../lib/api'
-
 type Props = { onStatusChange: (isAdmin: boolean, configured: boolean) => void }
-
 export default function AdminAccess({ onStatusChange }: Props) {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [configured, setConfigured] = useState(false)
   const [loading, setLoading] = useState(true)
-
   const loadStatus = async () => {
     try {
       const response = await api('admin/status')
@@ -19,9 +16,7 @@ export default function AdminAccess({ onStatusChange }: Props) {
       setMessage('관리자 상태를 확인하지 못했어요.')
     } finally { setLoading(false) }
   }
-
   useEffect(() => { loadStatus() }, [])
-
   const login = async (event: FormEvent) => {
     event.preventDefault()
     if (!password.trim()) { setMessage('관리자 비밀번호를 입력해 주세요.'); return }
@@ -32,15 +27,12 @@ export default function AdminAccess({ onStatusChange }: Props) {
       setPassword(''); setMessage('관리자 편집 권한이 열렸어요.'); await loadStatus()
     } catch (error) { setMessage(error instanceof Error ? error.message : '로그인하지 못했어요.') }
   }
-
   const logout = async () => {
     await api('admin/logout', { method: 'POST' })
     setMessage('관리자 편집 권한을 종료했어요.')
     await loadStatus()
   }
-
-  if (loading) return null
-  if (!configured) return <section className="admin-access"><div><p className="eyebrow">관리자 편집</p><strong>배포 설정에서 관리자 비밀번호를 먼저 등록해 주세요.</strong><p>등록 전에는 모든 방문자가 자료를 읽고 학습할 수 있으며, 새 단어 추가는 잠겨 있어요.</p></div></section>
+  if (loading) return <section className="admin-access" aria-live="polite"><div><p className="eyebrow">관리자 편집</p><strong>편집 권한 상태를 확인하고 있어요.</strong><p>단어장을 추가하거나 관리 메뉴를 사용하려면 관리자 로그인이 필요합니다.</p></div></section>
   if (isAdmin) return <section className="admin-access active"><div><p className="eyebrow">관리자 편집</p><strong>자료 편집 권한이 활성화되어 있어요.</strong><p>이 기기에서는 단어장을 추가할 수 있습니다.</p></div><button className="clear-btn" onClick={logout}>관리자 종료</button>{message && <span role="status">{message}</span>}</section>
-  return <section className="admin-access"><div><p className="eyebrow">관리자 편집</p><strong>학습 자료를 추가하려면 관리자 로그인이 필요해요.</strong><p>학습자 개인의 카드·퀴즈·오답 노트는 로그인 없이 그대로 사용할 수 있습니다.</p></div><form onSubmit={login}><label htmlFor="admin-password">관리자 비밀번호</label><div><input id="admin-password" type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" /><button className="primary-btn">편집 권한 열기</button></div></form>{message && <span role="status">{message}</span>}</section>
+  return <section className="admin-access"><div><p className="eyebrow">관리자 편집</p><strong>{configured ? '학습 자료를 추가하려면 관리자 로그인이 필요해요.' : '관리자 비밀번호 연결을 확인해 주세요.'}</strong><p>{configured ? '학습자 개인의 카드·퀴즈·오답 노트는 로그인 없이 그대로 사용할 수 있습니다.' : '아래 입력칸은 항상 표시됩니다. 비밀번호를 입력했는데도 열리지 않으면, 현재 공개된 서비스에 관리자 비밀번호 설정이 반영되지 않은 상태예요.'}</p></div><form onSubmit={login}><label htmlFor="admin-password">관리자 비밀번호</label><div><input id="admin-password" type="password" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" placeholder="관리자 비밀번호 입력" /><button className="primary-btn">편집 권한 열기</button></div></form>{!configured && <p className="admin-config-note">배포 서비스의 환경 설정에서 <b>ADMIN_PASSWORD</b> 값을 저장한 뒤, 새 배포를 완료해야 로그인할 수 있어요.</p>}{message && <span role="status">{message}</span>}</section>
 }
