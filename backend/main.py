@@ -48,6 +48,8 @@ def init_db():
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(learner_id, state_key), FOREIGN KEY(learner_id) REFERENCES learners(id)
         );
         """)
+        conn.execute("ALTER TABLE sentence_tests ADD COLUMN source_reference TEXT NOT NULL DEFAULT ''") if "source_reference" not in [row[1] for row in conn.execute("PRAGMA table_info(sentence_tests)").fetchall()] else None
+        conn.execute("ALTER TABLE sentence_tests ADD COLUMN source_checked_at TEXT NOT NULL DEFAULT ''") if "source_checked_at" not in [row[1] for row in conn.execute("PRAGMA table_info(sentence_tests)").fetchall()] else None
         for lesson_name in ["1과", "2과", "3과"]:
             conn.execute("INSERT OR IGNORE INTO lessons (name) VALUES (?)", (lesson_name,))
         lesson = conn.execute("SELECT id FROM lessons WHERE name = '1과'").fetchone()
@@ -67,12 +69,27 @@ def init_db():
             if word:
                 conn.execute("INSERT OR IGNORE INTO word_forms (word_id, form_text, grammar_label, gloss) VALUES (?, ?, ?, ?)", (word["id"], form_text, grammar_label, gloss))
         conn.executemany(
-            "INSERT OR IGNORE INTO sentence_tests (lesson_id, greek_text, korean_answer, hint) VALUES (?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO sentence_tests (lesson_id, greek_text, korean_answer, hint, source_reference, source_checked_at) VALUES (?, ?, ?, ?, ?, ?)",
             [
-                (lesson["id"], "Μενοῦν μακάριοι οἱ ἀκούοντες τὸν λόγον τοῦ θεοῦ καὶ φυλάσσοντες.", "오히려 하나님의 말씀을 듣고 지키는 사람들이 복이 있다.", "누가복음 11:28 · ἀκούοντες: 듣는 사람들 · λόγον: 말씀을"),
-                (lesson["id"], "Ἐν ἀρχῇ ἦν ὁ λόγος.", "태초에 말씀이 계셨다.", "요한복음 1:1 앞부분 · ἐν ἀρχῇ: 태초에 · λόγος: 말씀"),
+                (lesson["id"], "αὐτὸς δὲ εἶπεν· Μενοῦν μακάριοι οἱ ἀκούοντες τὸν λόγον τοῦ θεοῦ καὶ φυλάσσοντες.", "오히려 하나님의 말씀을 듣고 지키는 사람들이 복이 있다.", "ἀκούοντες: 듣는 사람들 · λόγον: 말씀을", "누가복음 11:28 · SBLGNT", "2026-09-28"),
+                (lesson["id"], "Ἐν ἀρχῇ ἦν ὁ λόγος.", "태초에 말씀이 계셨다.", "ἐν ἀρχῇ: 태초에 · λόγος: 말씀", "요한복음 1:1 앞부분 · SBLGNT", "2026-09-28"),
             ],
         )
+        old_sentence = conn.execute(
+            "SELECT id FROM sentence_tests WHERE lesson_id = ? AND greek_text = ?",
+            (lesson["id"], "Μενοῦν μακάριοι οἱ ἀκούοντες τὸν λόγον τοῦ θεοῦ καὶ φυλάσσοντες."),
+        ).fetchone()
+        verified_sentence = conn.execute(
+            "SELECT id FROM sentence_tests WHERE lesson_id = ? AND greek_text = ?",
+            (lesson["id"], "αὐτὸς δὲ εἶπεν· Μενοῦν μακάριοι οἱ ἀκούοντες τὸν λόγον τοῦ θεοῦ καὶ φυλάσσοντες."),
+        ).fetchone()
+        if old_sentence and verified_sentence:
+            conn.execute("DELETE FROM sentence_tests WHERE id = ?", (old_sentence["id"],))
+        elif old_sentence:
+            conn.execute(
+                "UPDATE sentence_tests SET greek_text = ?, source_reference = ?, source_checked_at = ? WHERE id = ?",
+                ("αὐτὸς δὲ εἶπεν· Μενοῦν μακάριοι οἱ ἀκούοντες τὸν λόγον τοῦ θεοῦ καὶ φυλάσσοντες.", "누가복음 11:28 · SBLGNT", "2026-09-28", old_sentence["id"]),
+            )
 app = FastAPI()
 init_db()
 class WordInput(BaseModel):

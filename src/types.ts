@@ -19,11 +19,12 @@ export type WordForm = {
   part_of_speech: string
   meaning: string
 }
-
 export type SentenceTest = {
   id: number
   lesson_id: number
   greek_text: string
   korean_answer: string
   hint: string
+  source_reference?: string
+  source_checked_at?: string
 }
